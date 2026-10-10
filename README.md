@@ -1,28 +1,41 @@
-# Loot Spin
+# Hộp Quà May Mắn
 
-An interactive gacha / loot box opening experience built with React, Vite and TypeScript, featuring an animated reward roulette, rarity tiers and a session inventory. It is a static single-page app deployed to GitHub Pages.
+A joyful, Counter-Strike–style loot box for kids, built with React, Vite and TypeScript. After a kid answers a question correctly, they open the box: a strip of prize cards races past a marker, slows down, and stops on their prize. The prize list can be edited right on the main screen.
 
-> **Demo only.** Tokens and items are simulated, free and have no monetary value. There are no purchases, payouts or real-money gambling, and rewards are rolled in the browser for illustration.
+The app is a static single-page site deployed to GitHub Pages, with no backend. Prize settings are saved in the browser's `localStorage`.
 
 ## Features
 
-- **Roulette opening**: a horizontal reward strip that launches fast, slows down and lands on the predetermined winner, then highlights it and opens a reveal modal.
-- **Rarity system**: six tiers (Consumer → Covert) with consistent colors, labels and glows, configured in one module.
-- **Case selection**: four themed cases, each with its own artwork, cost, reward pool and rarity odds.
-- **Possible rewards**: every item in the selected case, with value and drop chance.
-- **Demo inventory**: unboxed items stack by type, persisted in `localStorage` with safe fallbacks.
-- **Recent drops**: a deterministic, client-side simulated feed that your own unboxings join.
-- **Responsive and accessible**: works from 320px up, has keyboard-accessible controls, visible focus states and a native `<dialog>` modal, and respects `prefers-reduced-motion`.
-- **No external images**: all artwork is original inline SVG, and fonts are self-hosted through Fontsource.
+- **Loot box opening**: a horizontal strip of prize cards that launches fast, slows down, and lands on the prize. The prize is drawn by weight *before* the animation, and the strip is built so it always lands on that prize.
+- **Odds hidden from kids**: the filler cards in the strip are picked evenly from the enabled prizes, so how often a prize scrolls past says nothing about its chance. Only the winning card uses the real weights.
+- **Big, tablet-friendly controls**: a large "MỞ QUÀ!" button, with layouts for phones and for tablets in portrait and landscape.
+- **Celebrations by rarity** (rarity only shows after a prize is won):
+  - **under 8% chance**: "SIÊU HIẾM!", star bursts, side cannons, light rays and a wiggling prize
+  - **under 15%**: a medium burst
+  - **everything else**: a small burst
+  - **"Chúc may mắn"**: an encouraging message and no confetti
+- **Special prizes**:
+  - **Lượt quay**: the reveal offers "Mở tiếp!", which starts a free extra opening right away.
+  - **Cộng điểm**: shown as a prize. The app has no scoring system, so the teacher adds the points.
+- **Editable prize list**: tap **Các phần quà** under the open button to show the list. Each prize can be renamed, turned on or off, and have its weight changed, with the live percentage next to it. "Khôi phục mặc định" resets everything. The list is locked while a box is opening.
+- **Accessible**: keyboard support, visible focus, Vietnamese screen-reader text, and support for `prefers-reduced-motion` (no long scroll and no confetti).
 
-## Tech Stack
+## Prizes and odds
 
-- [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/)
-- [Vite](https://vite.dev/) 8
-- [Tailwind CSS](https://tailwindcss.com/) v4 (via `@tailwindcss/vite`, configured in `src/index.css`)
-- [Lucide](https://lucide.dev/) icons
-- [Oxlint](https://oxc.rs/docs/guide/usage/linter) for linting
-- GitHub Actions + GitHub Pages for hosting
+Weights are relative, not percentages. A prize's chance is its weight divided by the total weight of all enabled prizes.
+
+| Prize           | Image                 | Default weight | Chance |
+| --------------- | --------------------- | -------------- | ------ |
+| Bánh            | `banh.webp`           | 40             | 22.2%  |
+| Chúc may mắn    | `chuc-may-man.webp`   | 30             | 16.7%  |
+| Dụng cụ học tập | `dung-cu-hoc-tap.webp`| 30             | 16.7%  |
+| Móc khóa        | `moc-khoa.webp`       | 20             | 11.1%  |
+| Lego            | `lego.webp`           | 20             | 11.1%  |
+| Lượt quay       | `luot-quay.webp`      | 20             | 11.1%  |
+| Gấu bông        | `gau-bong.webp`       | 10             | 5.6%   |
+| Cộng điểm       | `cong-diem.webp`      | 10             | 5.6%   |
+
+Images live in `src/assets/` and are linked to each prize by a fixed `id` in `src/data/prizes.ts`, never by its name. Renaming a prize in settings can't break its image.
 
 ## Getting Started
 
@@ -34,9 +47,10 @@ An interactive gacha / loot box opening experience built with React, Vite and Ty
 ### Install and run
 
 ```bash
-git clone <repository-url>
-cd loot-spin
 npm install
+```
+
+```bash
 npm run dev
 ```
 
@@ -44,62 +58,74 @@ Then open the URL that Vite prints (http://localhost:5173 by default).
 
 ## Available Scripts
 
-| Command             | Description                                          |
-| ------------------- | ---------------------------------------------------- |
-| `npm run dev`       | Start the Vite dev server                            |
-| `npm run build`     | Type-check and build the production bundle to `dist/` |
-| `npm run typecheck` | Run the TypeScript project build without emitting     |
-| `npm run lint`      | Lint with Oxlint                                     |
-| `npm run preview`   | Serve the production build locally                   |
+| Command             | Description                                            |
+| ------------------- | ------------------------------------------------------ |
+| `npm run dev`       | Start the Vite dev server                              |
+| `npm run build`     | Type-check and build the production bundle to `dist/`  |
+| `npm run typecheck` | Run the TypeScript project build without emitting      |
+| `npm run lint`      | Lint with Oxlint                                       |
+| `npm run preview`   | Serve the production build locally                     |
+
+## Editing prizes
+
+1. Tap **Các phần quà** below the "MỞ QUÀ!" button to show the prize list. Tap it again to hide it.
+2. Edit names, on/off switches and weights. The percentage next to each prize updates live, and changes save automatically.
+3. **Khôi phục mặc định** asks for a second tap, then restores the defaults above.
+
+There is no PIN: anyone using the device can edit the prizes. The list starts hidden and never shows odds on the opening screen itself.
+
+## Saved data
+
+All reads and writes are wrapped in `try/catch`. If storage is empty, unavailable or broken, the app falls back to the defaults.
+
+| Key                               | Contents |
+| --------------------------------- | -------- |
+| `loot-spin:prize-settings:v1`     | `{ "version": 1, "prizes": [{ "id", "name", "weight", "enabled" }, …] }` |
+
+When loading, saved settings are cleaned up field by field in `sanitizeSettings()` (`src/lib/prizes.ts`):
+
+- A missing or invalid field falls back to that prize's default.
+- Weights are rounded and clamped to 0–999.
+- Unknown prizes are dropped, and missing prizes are restored.
+- Data from an unknown version, or that can't be read at all, is replaced by the defaults.
 
 ## Project Structure
 
 ```text
-loot-spin/
-├── .github/workflows/deploy.yml   # Build + deploy to GitHub Pages
-├── public/                        # Static files copied as-is (favicon)
-├── src/
-│   ├── components/                # UI components, one folder each
-│   │   ├── CaseArt/               # Themed SVG chest illustration
-│   │   ├── CaseRoulette/          # Spinning reward strip (core animation)
-│   │   ├── CaseSelector/
-│   │   ├── FeaturedCase/
-│   │   ├── Footer/
-│   │   ├── Header/
-│   │   ├── InventoryPanel/
-│   │   ├── ItemArt/               # Item artwork (icon + tint + rarity light)
-│   │   ├── OpeningResult/         # Reward reveal modal
-│   │   ├── RarityBadge/
-│   │   ├── RecentDrops/
-│   │   ├── RewardCard/
-│   │   └── RewardGrid/
-│   ├── data/                      # Cases, items, rarities, mock feed data
-│   ├── hooks/                     # Opening state machine, inventory, wallet, feed
-│   ├── lib/                       # Pure logic: RNG, reward rolls, strip geometry
-│   ├── types/
-│   ├── App.tsx
-│   ├── index.css                  # Tailwind theme tokens + shared styles
-│   └── main.tsx
-├── index.html
-├── vite.config.ts
-└── package.json
+src/
+├── assets/                  # Prize images (*.webp)
+├── components/
+│   ├── Header/
+│   ├── LootStrip/           # The scrolling prize strip and center marker
+│   ├── PrizeEditor/         # Collapsible, editable prize list
+│   └── PrizeReveal/         # Reveal popup + confetti
+├── data/prizes.ts           # Default prizes, weights, images, colors, effects
+├── hooks/                   # Opening state machine, prize settings, storage
+├── lib/                     # Pure logic: odds, draw, strip building, confetti
+├── types/
+├── App.tsx
+├── index.css                # Tailwind theme tokens + shared styles
+└── main.tsx
 ```
 
-## How It Works
+### How an opening works
 
-1. **Roll first.** When you click **Open case**, `rollReward()` (`src/lib/rewards.ts`) picks a rarity tier using the case's weights, then an item uniformly within that tier. This happens *before* any animation.
-2. **Build the strip.** `buildSpinStrip()` (`src/lib/roulette.ts`) carries over the cards currently on screen, so the spin starts seamlessly where the last one stopped. It then adds filler cards rolled with the same odds and places the winner at the landing index, with a small random offset so the marker doesn't always hit dead center.
-3. **Animate imperatively.** `CaseRoulette` measures the card width, gap and viewport at spin time and runs a single Web Animations API transform. React renders once per spin, not once per frame. When the animation finishes, the position is re-measured, which keeps the landing exact even if the window was resized mid-spin.
-4. **Reveal.** The winner is highlighted, added to the inventory and the recent-drops feed, and the result modal opens.
+1. `rollPrize()` (`src/lib/prizes.ts`) draws a prize from the enabled prizes by weight, using `crypto.getRandomValues`.
+2. `buildSpinStrip()` (`src/lib/roulette.ts`) carries over the cards on screen, adds evenly picked filler cards, and places the drawn prize at the landing spot.
+3. `LootStrip` measures the card size at that moment and animates the strip once with the Web Animations API. React doesn't re-render during the animation, and the landing stays exact at any screen size, even if the tablet is rotated mid-opening.
+4. When the strip stops, the winning card glows and the reveal popup opens with a celebration sized by `celebrationTier()`.
 
-`useCaseOpening` guards the flow with a synchronous lock, so extra clicks during a spin are ignored. With `prefers-reduced-motion: reduce`, the strip jumps straight to the winner.
+Taps during an opening are ignored, and the prize list is locked until it stops.
 
-### Adding a case
+### Adding or changing a prize
 
-1. Add the items to `src/data/items.ts` (name, rarity, value, icon and tint).
-2. Append a case to `CASES` in `src/data/cases.ts` with its theme colors, emblem, cost, `itemIds` and `rarityWeights`.
+To add a prize:
 
-The selector, featured case, odds, reward grid and roulette pick it up automatically. Rarity colors and labels live only in `src/data/rarities.ts`.
+1. Put the image in `src/assets/`.
+2. Add its `id` to `PrizeId` in `src/types/index.ts`.
+3. In `src/data/prizes.ts`, add a row to `DEFAULT_PRIZES` and an entry to `PRIZE_ASSETS` (image, color and optional effect).
+
+The strip and the prize list pick it up automatically.
 
 ## Deploying to GitHub Pages
 
@@ -116,34 +142,27 @@ Deployment runs automatically through `.github/workflows/deploy.yml` on every pu
 ### What the workflow does
 
 1. Checks out the repository.
-2. Sets up Node.js (with the npm cache).
+2. Sets up Node.js.
 3. Runs `actions/configure-pages`, which reports the site's base path.
-4. Installs dependencies from the lockfile with `npm ci`.
-5. Builds with `npm run build`, passing the base path as `BASE_PATH`.
-6. Uploads `dist/` with `actions/upload-pages-artifact`.
-7. Deploys it with `actions/deploy-pages` to the `github-pages` environment.
+4. Installs dependencies with `npm ci`.
+5. Builds with `npm run build`, passing that base path as `BASE_PATH`.
+6. Uploads `dist/` and deploys it with `actions/deploy-pages`.
 
 The site is then available at `https://<username>.github.io/<repository>/`.
 
 ### Base path
 
-Vite needs to know the sub-path the site is served from. `vite.config.ts` reads it from the `BASE_PATH` environment variable and normalizes it:
+`vite.config.ts` reads the base path from the `BASE_PATH` environment variable:
 
-| `BASE_PATH`                    | Resulting `base` | Use case                                         |
-| ------------------------------ | ---------------- | ------------------------------------------------ |
-| unset, `""` or `/`             | `/`              | Local dev, custom domain, `<user>.github.io` repo |
-| `loot-spin` or `/loot-spin`    | `/loot-spin/`    | Project site `https://<user>.github.io/loot-spin/` |
-| `./`                           | `./`             | Relative, portable build                         |
+| `BASE_PATH`                 | Resulting `base` | Use case                                           |
+| --------------------------- | ---------------- | -------------------------------------------------- |
+| unset, `""` or `/`          | `/`              | Local dev, custom domain, `<user>.github.io` repo  |
+| `loot-spin` or `/loot-spin` | `/loot-spin/`    | Project site `https://<user>.github.io/loot-spin/` |
+| `./`                        | `./`             | Relative, portable build                           |
 
-In CI you don't need to configure anything. The workflow passes the base path that GitHub Pages reports, which is `/<repository>` for a project site and empty for a custom domain or user site. The repository name is never hardcoded, so renaming the repo or adding a custom domain keeps working.
+In CI no setup is needed. The workflow passes the base path that GitHub Pages reports, so the repository name is never hardcoded. To force a value, add a repository variable named `BASE_PATH` under **Settings → Secrets and variables → Actions → Variables**.
 
-To force a specific value, add a repository variable named `BASE_PATH` under **Settings → Secrets and variables → Actions → Variables**. It takes precedence over the detected value.
-
-### Custom domain
-
-Configure the domain under **Settings → Pages → Custom domain**. On the next deployment the detected base path becomes empty and the site builds for `/`.
-
-### Testing a sub-path build locally
+To test a sub-path build locally:
 
 ```bash
 BASE_PATH=/loot-spin npm run build
@@ -154,12 +173,6 @@ BASE_PATH=/loot-spin npm run preview
 ```
 
 Then open http://localhost:4173/loot-spin/.
-
-## Development Notes
-
-- Case definitions, item metadata, rarity configuration, reward selection and UI components are kept in separate modules.
-- Persistence (`usePersistentState`) validates stored data and falls back to in-memory state when storage is unavailable or corrupt.
-- Client-side reward selection is for demonstration only. A real system with valuable or tradable rewards would need server-authoritative rolls, validation and appropriate security controls.
 
 ## License
 

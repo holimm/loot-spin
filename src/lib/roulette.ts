@@ -1,6 +1,5 @@
-import type { Item, LootCase, StripEntry } from '../types'
-import { randomInt, type Rng } from './random'
-import { rollReward } from './rewards'
+import type { Prize, PrizeId, StripEntry } from '../types'
+import { pickOne, randomInt, type Rng } from './random'
 
 /** Cards kept on each side of the resting card so a new spin starts seamlessly. */
 const CARRY_RADIUS = 8
@@ -14,7 +13,7 @@ const IDLE_LENGTH = 2 * CARRY_RADIUS + 1
 /** Max distance (as a fraction of card width) the marker may land from card center. */
 export const LANDING_SPREAD = 0.36
 
-export const SPIN_DURATION_MS = 6800
+export const SPIN_DURATION_MS = 6200
 /** Fast launch, long deceleration — the classic case-opening feel. */
 export const SPIN_EASING = 'cubic-bezier(0.08, 0.62, 0.1, 1)'
 
@@ -31,18 +30,22 @@ export interface SpinPlan {
 }
 
 let keySeq = 0
-function entry(item: Item): StripEntry {
+function entry(id: PrizeId): StripEntry {
   keySeq += 1
-  return { key: `c${keySeq}`, item }
+  return { key: `c${keySeq}`, id }
 }
 
-/** Filler cards are rolled with the case's real odds so the strip looks honest. */
-function filler(lootCase: LootCase, rng: Rng): StripEntry {
-  return entry(rollReward(lootCase, rng))
+/**
+ * Filler cards are picked evenly from the enabled prizes, NOT by weight, so
+ * kids can't guess the odds from how often a prize scrolls by. Only the
+ * winning card is drawn with the real weights.
+ */
+function filler(prizes: Prize[], rng: Rng): StripEntry {
+  return entry(pickOne(rng, prizes).id)
 }
 
-export function buildIdleStrip(lootCase: LootCase, rng: Rng): { strip: StripEntry[]; rest: RestPosition } {
-  const strip = Array.from({ length: IDLE_LENGTH }, () => filler(lootCase, rng))
+export function buildIdleStrip(prizes: Prize[], rng: Rng): { strip: StripEntry[]; rest: RestPosition } {
+  const strip = prizes.length ? Array.from({ length: IDLE_LENGTH }, () => filler(prizes, rng)) : []
   return { strip, rest: { index: CARRY_RADIUS, offset: 0 } }
 }
 
@@ -52,26 +55,27 @@ export function buildIdleStrip(lootCase: LootCase, rng: Rng): { strip: StripEntr
  * and the predetermined `winner` is placed at the landing index.
  */
 export function buildSpinStrip(
-  lootCase: LootCase,
-  winner: Item,
+  prizes: Prize[],
+  winner: Prize,
   current: StripEntry[],
   rest: RestPosition,
   rng: Rng,
 ): { strip: StripEntry[]; from: RestPosition; to: RestPosition } {
   const carryStart = Math.max(0, rest.index - CARRY_RADIUS)
   const carried = current.slice(carryStart, rest.index + CARRY_RADIUS + 1)
-  const fromIndex = rest.index - carryStart
+  // An empty strip (no prizes were enabled before) starts from its first card.
+  const fromIndex = carried.length ? rest.index - carryStart : 0
   const winIndex = fromIndex + randomInt(rng, MIN_TRAVEL, MAX_TRAVEL)
 
   const strip: StripEntry[] = [...carried]
-  while (strip.length < winIndex) strip.push(filler(lootCase, rng))
-  strip.push(entry(winner))
-  for (let i = 0; i < TAIL; i += 1) strip.push(filler(lootCase, rng))
+  while (strip.length < winIndex) strip.push(filler(prizes, rng))
+  strip.push(entry(winner.id))
+  for (let i = 0; i < TAIL; i += 1) strip.push(filler(prizes, rng))
 
   const offset = (rng() * 2 - 1) * LANDING_SPREAD
   return {
     strip,
-    from: { index: fromIndex, offset: rest.offset },
+    from: { index: fromIndex, offset: carried.length ? rest.offset : 0 },
     to: { index: winIndex, offset },
   }
 }
@@ -80,12 +84,7 @@ export function buildSpinStrip(
  * Horizontal translation (px) that puts `position` under the center marker.
  * `offset` shifts the landing point within the card, in card widths.
  */
-export function translateFor(
-  position: RestPosition,
-  viewportWidth: number,
-  cardWidth: number,
-  gap: number,
-): number {
+export function translateFor(position: RestPosition, viewportWidth: number, cardWidth: number, gap: number): number {
   const cardCenter = position.index * (cardWidth + gap) + cardWidth / 2
   return viewportWidth / 2 - (cardCenter + position.offset * cardWidth)
 }

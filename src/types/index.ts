@@ -1,89 +1,44 @@
-import type { LucideIcon } from 'lucide-react'
+export type PrizeId =
+  | 'banh'
+  | 'chuc-may-man'
+  | 'dung-cu-hoc-tap'
+  | 'moc-khoa'
+  | 'lego'
+  | 'luot-quay'
+  | 'gau-bong'
+  | 'cong-diem'
 
-export type RarityId =
-  | 'consumer'
-  | 'industrial'
-  | 'milspec'
-  | 'restricted'
-  | 'classified'
-  | 'covert'
+/** Prize behaviour beyond "show the prize". */
+export type PrizeEffect = 'extra-spin' | 'better-luck'
 
-export interface Rarity {
-  id: RarityId
-  /** Grade name shown on badges, e.g. "Mil-Spec". */
-  label: string
-  /** Plain-language tier, e.g. "Rare". */
-  tier: string
-  /** 0 = most common. Used for sorting. */
-  rank: number
-  /** Base color for borders, text and glows. */
+/** The editable part of a prize, as stored in localStorage. */
+export interface PrizeConfig {
+  id: PrizeId
+  name: string
+  /** Relative weight; chance = weight / total of enabled weights. */
+  weight: number
+  enabled: boolean
+}
+
+export interface PrizeSettings {
+  version: 1
+  prizes: PrizeConfig[]
+}
+
+/** A prize ready to draw: settings merged with its fixed image, color and effect. */
+export interface Prize extends PrizeConfig {
+  image: string
   color: string
-  /** Default drop weight; cases may override it. */
-  defaultWeight: number
-}
-
-/** Visual description of an item; rendered by <ItemArt />. */
-export interface ItemArtwork {
-  icon: LucideIcon
-  /** Two-stop gradient for the icon stroke: [light, dark]. */
-  tint: [string, string]
-}
-
-export interface Item {
-  id: string
-  name: string
-  rarity: RarityId
-  /** Mock value in demo tokens. */
-  value: number
-  /** Short flavour category, e.g. "Blade". */
-  kind: string
-  art: ItemArtwork
-}
-
-export interface CaseTheme {
-  /** Main body color of the crate. */
-  body: string
-  /** Metal trim color. */
-  trim: string
-  /** Light leaking from the seam and the backdrop glow. */
-  glow: string
-  /** Emblem shown on the lock plate. */
-  emblem: LucideIcon
-}
-
-export interface LootCase {
-  id: string
-  name: string
-  tagline: string
-  description: string
-  /** Mock cost in demo tokens. */
-  cost: number
-  theme: CaseTheme
-  itemIds: string[]
-  /** Per-rarity drop weights. Rarities missing from the pool are ignored. */
-  rarityWeights: Partial<Record<RarityId, number>>
+  effect?: PrizeEffect
+  /** Probability in [0, 1] among enabled prizes. */
+  chance: number
 }
 
 /** One card in the roulette strip. `key` is unique per strip position. */
 export interface StripEntry {
   key: string
-  item: Item
+  id: PrizeId
 }
 
-export interface Drop {
-  id: string
-  user: string
-  item: Item
-  caseName: string
-  /** Epoch milliseconds. */
-  at: number
-  isOwn?: boolean
-}
-
-export interface InventoryEntry {
-  /** Unique per unboxing. */
-  uid: string
-  itemId: string
-  caseId: string
-  obtainedAt: number
-}
+/** Size of the reveal celebration. */
+export type CelebrationTier = 'gentle' | 'small' | 'medium' | 'big'
