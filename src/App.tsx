@@ -1,166 +1,124 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { CaseRoulette } from './components/CaseRoulette/CaseRoulette'
-import { CaseSelector } from './components/CaseSelector/CaseSelector'
-import { FeaturedCase } from './components/FeaturedCase/FeaturedCase'
-import { Footer } from './components/Footer/Footer'
+import { Gift } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Header } from './components/Header/Header'
-import { InventoryPanel } from './components/InventoryPanel/InventoryPanel'
-import { OpeningResult } from './components/OpeningResult/OpeningResult'
-import { RecentDrops } from './components/RecentDrops/RecentDrops'
-import { RewardGrid } from './components/RewardGrid/RewardGrid'
-import { CASES, DEFAULT_CASE_ID, getCase } from './data/cases'
-import { getRarity } from './data/rarities'
-import { useCaseOpening } from './hooks/useCaseOpening'
-import { useDemoWallet } from './hooks/useDemoWallet'
-import { useInventory } from './hooks/useInventory'
+import { LootStrip } from './components/LootStrip/LootStrip'
+import { PrizeEditor } from './components/PrizeEditor/PrizeEditor'
+import { PrizeReveal } from './components/PrizeReveal/PrizeReveal'
+import { useLootOpening } from './hooks/useLootOpening'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
-import { useRecentDrops } from './hooks/useRecentDrops'
-import type { Item, LootCase } from './types'
+import { usePrizeSettings } from './hooks/usePrizeSettings'
+import { celebrationTier, getActivePrizes } from './lib/prizes'
+import type { CelebrationTier, Prize } from './types'
 
-/** Mock global counter shown above the cases. */
-const SIMULATED_TOTAL_OPENS = 1_284_377
-/** Pause on the highlighted winner before the result modal appears. */
+/** Pause on the highlighted card before the reveal pops up. */
 const REVEAL_DELAY_MS = 700
-const HEADER_OFFSET_PX = 64
 
 export default function App() {
-  const [caseId, setCaseId] = useState(DEFAULT_CASE_ID)
-  const lootCase = getCase(caseId)
+  const { settings, updatePrize, reset } = usePrizeSettings()
   const reducedMotion = usePrefersReducedMotion()
-  const { balance, spend, refill } = useDemoWallet()
-  const inventory = useInventory()
-  const { drops, now, addOwnDrop } = useRecentDrops()
-  const [resultOpen, setResultOpen] = useState(false)
-  // Snapshot of the last reveal, so the modal never shows a winner before its spin lands.
-  const [revealed, setRevealed] = useState<{ item: Item; lootCase: LootCase } | null>(null)
-  const [sessionOpens, setSessionOpens] = useState(0)
-  const rouletteRef = useRef<HTMLElement>(null)
+  const prizes = useMemo(() => getActivePrizes(settings), [settings])
+  const stripRef = useRef<HTMLElement>(null)
+
+  // Snapshot of the last revealed prize, so the reveal never shows a prize early.
+  const [reveal, setReveal] = useState<{ prize: Prize; tier: CelebrationTier } | null>(null)
+  const [revealOpen, setRevealOpen] = useState(false)
   const revealTimer = useRef<number | undefined>(undefined)
-
-  const addToInventory = inventory.add
-  const handleReveal = useCallback(
-    (item: Item, revealedCase: LootCase) => {
-      addToInventory(item.id, revealedCase.id)
-      addOwnDrop(item, revealedCase.name)
-      setRevealed({ item, lootCase: revealedCase })
-      window.clearTimeout(revealTimer.current)
-      revealTimer.current = window.setTimeout(() => setResultOpen(true), reducedMotion ? 150 : REVEAL_DELAY_MS)
-    },
-    [addToInventory, addOwnDrop, reducedMotion],
-  )
-
-  const opening = useCaseOpening(lootCase, handleReveal)
-  const { open: openCase, reset: resetRoulette, settle } = opening
-  const spinning = opening.phase === 'spinning'
-  const canAfford = balance >= lootCase.cost
-
   useEffect(() => () => window.clearTimeout(revealTimer.current), [])
 
-  const startOpening = useCallback(() => {
-    if (balance < lootCase.cost) return
-    const winner = openCase(lootCase)
-    if (!winner) return // a spin is already running
-    spend(lootCase.cost)
-    setResultOpen(false)
-    setSessionOpens((n) => n + 1)
-
-    const roulette = rouletteRef.current
-    if (roulette) {
-      const rect = roulette.getBoundingClientRect()
-      if (rect.top < HEADER_OFFSET_PX || rect.bottom > window.innerHeight) {
-        roulette.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' })
-      }
-    }
-  }, [balance, lootCase, openCase, spend, reducedMotion])
-
-  const selectCase = useCallback(
-    (next: LootCase) => {
-      if (spinning || next.id === caseId) return
-      setCaseId(next.id)
-      resetRoulette(next)
+  const handleReveal = useCallback(
+    (prize: Prize) => {
+      setReveal({ prize, tier: celebrationTier(prize) })
+      window.clearTimeout(revealTimer.current)
+      revealTimer.current = window.setTimeout(() => setRevealOpen(true), reducedMotion ? 150 : REVEAL_DELAY_MS)
     },
-    [spinning, caseId, resetRoulette],
+    [reducedMotion],
   )
 
-  const closeResult = useCallback(() => {
+  const opening = useLootOpening(prizes, handleReveal)
+  const { open } = opening
+  const spinning = opening.phase === 'spinning'
+  const canOpen = !spinning && prizes.length > 0
+
+  const startOpening = useCallback(() => {
+    if (!open()) return
+    // Make sure the strip is on screen (the editor below may be scrolled into view).
+    const strip = stripRef.current
+    if (strip) {
+      const rect = strip.getBoundingClientRect()
+      if (rect.top < 0 || rect.bottom > window.innerHeight) {
+        strip.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' })
+      }
+    }
+  }, [open, reducedMotion])
+
+  const closeReveal = useCallback(() => {
     window.clearTimeout(revealTimer.current)
-    setResultOpen(false)
+    setRevealOpen(false)
   }, [])
 
+  // "Lượt quay": the free extra opening starts right away.
   const openAgain = useCallback(() => {
-    closeResult()
+    closeReveal()
     startOpening()
-  }, [closeResult, startOpening])
+  }, [closeReveal, startOpening])
 
-  const status =
-    opening.phase === 'spinning'
-      ? `Opening ${lootCase.name}…`
-      : opening.phase === 'revealed' && opening.winner
-        ? `You unboxed ${opening.winner.name}, ${getRarity(opening.winner.rarity).label} grade.`
-        : ''
+  const status = spinning
+    ? 'Đang mở quà…'
+    : opening.phase === 'revealed' && opening.winner
+      ? `Bạn nhận được: ${opening.winner.name}!`
+      : ''
 
   return (
-    <div id="top" className="relative min-h-dvh" style={{ '--case-glow': lootCase.theme.glow } as CSSProperties}>
-      <div className="atmosphere pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />
-      <a
-        href="#main"
-        className="sr-only z-50 rounded-md bg-gold-300 px-4 py-2 font-semibold text-ink-950 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-      >
-        Skip to content
-      </a>
+    <div className="relative min-h-dvh">
+      <div className="confetti-backdrop pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />
+      <Header />
 
-      <Header balance={balance} inventoryCount={inventory.entries.length} onRefill={refill} />
+      <main className="mx-auto max-w-6xl px-4 pt-4 pb-12 sm:px-6">
+        <section aria-labelledby="open-title" className="flex flex-col items-center gap-5">
+          <h1 id="open-title" className="text-center font-display text-3xl leading-tight font-extrabold sm:text-4xl">
+            Bạn giỏi lắm! Mở quà nào!
+          </h1>
 
-      <main id="main" className="mx-auto max-w-7xl px-4 sm:px-6">
-        <section id="open" aria-label="Open a case" className="scroll-mt-20 pt-4 sm:pt-6">
-          <CaseSelector cases={CASES} selectedId={caseId} disabled={spinning} onSelect={selectCase} />
-
-          <div className="panel mt-3 p-4 sm:mt-4 sm:p-6 lg:px-8 lg:py-7">
-            <FeaturedCase
-              lootCase={lootCase}
+          <div className="w-full">
+            <LootStrip
+              ref={stripRef}
+              prizes={prizes}
+              strip={opening.strip}
+              rest={opening.rest}
+              plan={opening.plan}
               phase={opening.phase}
-              canAfford={canAfford}
-              totalOpens={SIMULATED_TOTAL_OPENS + sessionOpens}
-              onOpen={startOpening}
-              onRefill={refill}
+              reducedMotion={reducedMotion}
+              onSettled={opening.settle}
             />
-            <div className="mt-6 sm:mt-7">
-              <CaseRoulette
-                ref={rouletteRef}
-                strip={opening.strip}
-                rest={opening.rest}
-                spin={opening.spin}
-                phase={opening.phase}
-                reducedMotion={reducedMotion}
-                onSettled={settle}
-              />
-            </div>
-            <p className="sr-only" role="status" aria-live="polite">
-              {status}
-            </p>
           </div>
+
+          <button type="button" onClick={startOpening} disabled={!canOpen} className="btn-candy h-20 w-full max-w-md text-3xl">
+            <Gift className="size-8" aria-hidden="true" />
+            {spinning ? 'Đang mở…' : 'MỞ QUÀ!'}
+          </button>
+          {prizes.length === 0 && (
+            <p className="text-center font-bold text-candy-dark" role="alert">
+              Chưa có phần quà nào được bật. Hãy bật ít nhất một phần quà ở bên dưới nhé!
+            </p>
+          )}
         </section>
 
-        <div className="mt-8 sm:mt-10">
-          <RewardGrid lootCase={lootCase} />
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 gap-8 sm:mt-10 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:items-start">
-          <InventoryPanel entries={inventory.entries} onClear={inventory.clear} />
-          <RecentDrops drops={drops} now={now} />
+        <div className="mt-12">
+          <PrizeEditor settings={settings} disabled={spinning} onUpdate={updatePrize} onReset={reset} />
         </div>
       </main>
 
-      <Footer />
+      <p className="sr-only" role="status" aria-live="polite">
+        {status}
+      </p>
 
-      {revealed && (
-        <OpeningResult
-          open={resultOpen}
-          item={revealed.item}
-          lootCase={revealed.lootCase}
-          canOpenAgain={!spinning && balance >= revealed.lootCase.cost}
-          onClose={closeResult}
-          onOpenAgain={openAgain}
+      {reveal && (
+        <PrizeReveal
+          open={revealOpen}
+          prize={reveal.prize}
+          tier={reveal.tier}
+          onClose={closeReveal}
+          onSpinAgain={openAgain}
         />
       )}
     </div>
