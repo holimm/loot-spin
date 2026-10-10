@@ -6,10 +6,10 @@ import gauBong from '../assets/gau-bong.webp'
 import lego from '../assets/lego.webp'
 import luotQuay from '../assets/luot-quay.webp'
 import mocKhoa from '../assets/moc-khoa.webp'
-import type { PrizeConfig, PrizeEffect, PrizeId } from '../types'
+import type { BuiltInPrizeId, PrizeConfig, PrizeEffect } from '../types'
 
 /** Default prizes and weights. Weights are relative, not percentages. */
-export const DEFAULT_PRIZES: readonly PrizeConfig[] = [
+export const DEFAULT_PRIZES: readonly (PrizeConfig & { id: BuiltInPrizeId })[] = [
   { id: 'banh', name: 'Bánh', weight: 40, enabled: true },
   { id: 'chuc-may-man', name: 'Chúc may mắn', weight: 30, enabled: true },
   { id: 'dung-cu-hoc-tap', name: 'Dụng cụ học tập', weight: 30, enabled: true },
@@ -20,13 +20,13 @@ export const DEFAULT_PRIZES: readonly PrizeConfig[] = [
   { id: 'cong-diem', name: 'Cộng điểm', weight: 10, enabled: true },
 ]
 
-export const PRIZE_IDS: readonly PrizeId[] = DEFAULT_PRIZES.map((p) => p.id)
+export const PRIZE_IDS: readonly BuiltInPrizeId[] = DEFAULT_PRIZES.map((p) => p.id)
 
 /**
  * Fixed per-prize data. Images are bound to the prize id, never its name,
  * so renaming a prize in settings can't break its picture.
  */
-export const PRIZE_ASSETS: Record<PrizeId, { image: string; color: string; effect?: PrizeEffect }> = {
+export const PRIZE_ASSETS: Record<BuiltInPrizeId, { image: string; color: string; effect?: PrizeEffect }> = {
   banh: { image: banh, color: '#ff9f1c' },
   'chuc-may-man': { image: chucMayMan, color: '#4cc9f0', effect: 'better-luck' },
   'dung-cu-hoc-tap': { image: dungCuHocTap, color: '#7bd389' },
@@ -40,7 +40,15 @@ export const PRIZE_ASSETS: Record<PrizeId, { image: string; color: string; effec
 export const MAX_WEIGHT = 999
 export const MAX_NAME_LENGTH = 24
 
-export function defaultPrize(id: PrizeId): PrizeConfig {
+export const MAX_CUSTOM_PRIZES = 24
+export const CUSTOM_DEFAULT_NAME = 'Phần quà mới'
+export const CUSTOM_DEFAULT_WEIGHT = 10
+/** Bright colors handed out to user-added prizes in turn. */
+export const CUSTOM_COLORS = ['#ff6b9d', '#22c3a6', '#ff9f1c', '#8b5cf6', '#3a86ff', '#f15bb5', '#2ec4b6', '#fb5607']
+
+export const isBuiltInId = (id: string): id is BuiltInPrizeId => (PRIZE_IDS as readonly string[]).includes(id)
+
+export function defaultPrize(id: BuiltInPrizeId): PrizeConfig {
   const found = DEFAULT_PRIZES.find((p) => p.id === id)
   if (!found) throw new Error(`Unknown prize "${id}"`)
   return { ...found }

@@ -18,6 +18,9 @@ The app is a static single-page site deployed to GitHub Pages, with no backend. 
   - **Lượt quay**: the reveal offers "Mở tiếp!", which starts a free extra opening right away.
   - **Cộng điểm**: shown as a prize. The app has no scoring system, so the teacher adds the points.
 - **Editable prize list**: tap **Các phần quà** under the open button to show the list. Each prize can be renamed, turned on or off, and have its weight changed, with the live percentage next to it. "Khôi phục mặc định" resets everything. The list is locked while a box is opening.
+- **Add your own prizes**: up to 24 extra prizes, each with a name, a weight and an optional photo from the device. Photos are shrunk in the browser (max 320px) and saved with the prize. A prize without a photo gets a colorful gift-box picture. Added prizes can be renamed or re-photographed.
+- **Delete any prize**: every prize has a red delete button (tap twice to confirm). Deleted added prizes are gone for good. Deleted built-in prizes appear under "Đã xóa", where one tap brings them back with their name and weight.
+- **Sound effects**: a whoosh when the box opens, a tick each time a card passes the marker (fast at first, slowing down with the strip), and a reveal jingle sized to the prize's rarity. Sounds are generated in the browser, with no audio files. The speaker button in the header turns sound on or off, and the choice is remembered.
 - **Accessible**: keyboard support, visible focus, Vietnamese screen-reader text, and support for `prefers-reduced-motion` (no long scroll and no confetti).
 
 ## Prizes and odds
@@ -70,7 +73,10 @@ Then open the URL that Vite prints (http://localhost:5173 by default).
 
 1. Tap **Các phần quà** below the "MỞ QUÀ!" button to show the prize list. Tap it again to hide it.
 2. Edit names, on/off switches and weights. The percentage next to each prize updates live, and changes save automatically.
-3. **Khôi phục mặc định** asks for a second tap, then restores the defaults above.
+3. To add a prize, tap **Thêm phần quà** at the end of the list. Enter a name and weight, and optionally tap the gift box to choose a photo. The live percentage shows what its chance will be.
+4. Added prizes are tagged **Tự thêm**; tap the photo to change it.
+5. Tap a prize's red trash button twice to delete it. Deleted built-in prizes are listed under **Đã xóa** with a restore button; deleted added prizes can't be brought back.
+6. **Khôi phục mặc định** asks for a second tap, then restores the defaults above. This also deletes all added prizes, and the confirm button says how many.
 
 There is no PIN: anyone using the device can edit the prizes. The list starts hidden and never shows odds on the opening screen itself.
 
@@ -80,14 +86,19 @@ All reads and writes are wrapped in `try/catch`. If storage is empty, unavailabl
 
 | Key                               | Contents |
 | --------------------------------- | -------- |
-| `loot-spin:prize-settings:v1`     | `{ "version": 1, "prizes": [{ "id", "name", "weight", "enabled" }, …] }` |
+| `loot-spin:prize-settings:v1`     | `{ "version": 2, "prizes": [{ "id", "name", "weight", "enabled", "custom"?, "removed"?, "image"?, "color"? }, …] }` |
+| `loot-spin:sound:v1`              | `true` / `false` — sound on or off |
 
 When loading, saved settings are cleaned up field by field in `sanitizeSettings()` (`src/lib/prizes.ts`):
 
+- Version 1 data (from before prizes could be added) is migrated automatically.
 - A missing or invalid field falls back to that prize's default.
 - Weights are rounded and clamped to 0–999.
-- Unknown prizes are dropped, and missing prizes are restored.
+- Missing built-in prizes are restored. Unknown ids, duplicates and anything beyond 24 added prizes are dropped.
+- An added prize's photo must be a WebP, JPEG or PNG data URL under about 400 KB; anything else is replaced by the gift-box picture.
 - Data from an unknown version, or that can't be read at all, is replaced by the defaults.
+
+Each added photo takes roughly 20–40 KB, so 24 of them fit easily in the browser's storage. If a save does fail (for example, storage is full), the prize list shows a warning that changes will be lost on reload.
 
 ## Project Structure
 
@@ -97,11 +108,13 @@ src/
 ├── components/
 │   ├── Header/
 │   ├── LootStrip/           # The scrolling prize strip and center marker
-│   ├── PrizeEditor/         # Collapsible, editable prize list
+│   ├── PhotoPicker/         # Tap-to-choose photo for added prizes
+│   ├── PrizeEditor/         # Collapsible, editable prize list + "add prize" form
+│   ├── PrizeImage/          # Prize photo or gift-box placeholder
 │   └── PrizeReveal/         # Reveal popup + confetti
 ├── data/prizes.ts           # Default prizes, weights, images, colors, effects
 ├── hooks/                   # Opening state machine, prize settings, storage
-├── lib/                     # Pure logic: odds, draw, strip building, confetti
+├── lib/                     # Pure logic: odds, draw, strip building, photo resizing, sound, confetti
 ├── types/
 ├── App.tsx
 ├── index.css                # Tailwind theme tokens + shared styles
@@ -117,9 +130,9 @@ src/
 
 Taps during an opening are ignored, and the prize list is locked until it stops.
 
-### Adding or changing a prize
+### Adding a built-in prize in code
 
-To add a prize:
+Prizes added in the app are saved in the browser only. To ship a prize with the app for everyone:
 
 1. Put the image in `src/assets/`.
 2. Add its `id` to `PrizeId` in `src/types/index.ts`.

@@ -25,14 +25,10 @@
   @keyframes winner {
     0%,
     100% {
-      box-shadow:
-        0 0 0 4px var(--color-sun),
-        0 0 18px 4px rgba(255, 210, 63, 0.6);
+      opacity: 0.55;
     }
     50% {
-      box-shadow:
-        0 0 0 6px var(--color-sun),
-        0 0 36px 12px rgba(255, 210, 63, 0.85);
+      opacity: 1;
     }
   }
   @keyframes float {
@@ -125,18 +121,19 @@
   .btn-candy,
   .btn-sun,
   .btn-grape,
-  .btn-white {
+  .btn-white,
+  .btn-red {
     @apply relative inline-flex items-center justify-center gap-2 rounded-full font-display font-extrabold transition-[transform,box-shadow,filter] duration-100 select-none;
     box-shadow: 0 var(--depth, 7px) 0 var(--edge, rgba(0, 0, 0, 0.25));
   }
-  :is(.btn-candy, .btn-sun, .btn-grape, .btn-white):hover:not(:disabled) {
+  :is(.btn-candy, .btn-sun, .btn-grape, .btn-white, .btn-red):hover:not(:disabled) {
     filter: brightness(1.06);
   }
-  :is(.btn-candy, .btn-sun, .btn-grape, .btn-white):active:not(:disabled) {
+  :is(.btn-candy, .btn-sun, .btn-grape, .btn-white, .btn-red):active:not(:disabled) {
     transform: translateY(calc(var(--depth, 7px) - 2px));
     box-shadow: 0 2px 0 var(--edge, rgba(0, 0, 0, 0.25));
   }
-  :is(.btn-candy, .btn-sun, .btn-grape, .btn-white):disabled {
+  :is(.btn-candy, .btn-sun, .btn-grape, .btn-white, .btn-red):disabled {
     @apply cursor-not-allowed;
     filter: grayscale(0.7) opacity(0.6);
   }
@@ -151,6 +148,12 @@
   .btn-grape {
     @apply bg-linear-to-b from-[#9a6ef0] to-grape text-white;
     --edge: var(--color-grape-dark);
+  }
+  /* Destructive actions (delete). White on #c62828 meets 4.5:1. */
+  .btn-red {
+    @apply bg-linear-to-b from-[#ef5350] to-[#c62828] text-white;
+    --edge: #8e1b1b;
+    --depth: 5px;
   }
   .btn-white {
     @apply border-2 border-ink/10 bg-white text-ink;
