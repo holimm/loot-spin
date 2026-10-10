@@ -3,6 +3,7 @@ import { RotateCw, Sparkles, X } from 'lucide-react'
 import { memo, useEffect, useLayoutEffect, useRef } from 'react'
 import { celebrate } from '../../lib/celebrate'
 import type { CelebrationTier, Prize } from '../../types'
+import { PrizeImage } from '../PrizeImage/PrizeImage'
 
 interface PrizeRevealProps {
   open: boolean
@@ -119,7 +120,7 @@ export const PrizeReveal = memo(function PrizeReveal({ open, prize, tier, onClos
               }`}
               style={{ borderColor: prize.color }}
             >
-              <img src={prize.image} alt={prize.name} className="h-full w-full object-contain p-2" />
+              <PrizeImage image={prize.image} color={prize.color} alt={prize.name} fit="contain" className="h-full w-full" />
             </div>
 
             <h2 id="reveal-title" className="relative mt-4 font-display text-4xl leading-tight font-extrabold sm:text-5xl">

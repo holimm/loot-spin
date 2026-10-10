@@ -7,15 +7,18 @@ import { PrizeReveal } from './components/PrizeReveal/PrizeReveal'
 import { useLootOpening } from './hooks/useLootOpening'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { usePrizeSettings } from './hooks/usePrizeSettings'
+import { useSoundSetting } from './hooks/useSoundSetting'
 import { celebrationTier, getActivePrizes } from './lib/prizes'
+import * as sound from './lib/sound'
 import type { CelebrationTier, Prize } from './types'
 
 /** Pause on the highlighted card before the reveal pops up. */
 const REVEAL_DELAY_MS = 700
 
 export default function App() {
-  const { settings, updatePrize, reset } = usePrizeSettings()
+  const { settings, saveFailed, updatePrize, addPrize, removePrize, restorePrize, reset } = usePrizeSettings()
   const reducedMotion = usePrefersReducedMotion()
+  const { soundOn, toggleSound } = useSoundSetting()
   const prizes = useMemo(() => getActivePrizes(settings), [settings])
   const stripRef = useRef<HTMLElement>(null)
 
@@ -27,9 +30,13 @@ export default function App() {
 
   const handleReveal = useCallback(
     (prize: Prize) => {
-      setReveal({ prize, tier: celebrationTier(prize) })
+      const tier = celebrationTier(prize)
+      setReveal({ prize, tier })
       window.clearTimeout(revealTimer.current)
-      revealTimer.current = window.setTimeout(() => setRevealOpen(true), reducedMotion ? 150 : REVEAL_DELAY_MS)
+      revealTimer.current = window.setTimeout(() => {
+        setRevealOpen(true)
+        sound.reveal(tier)
+      }, reducedMotion ? 150 : REVEAL_DELAY_MS)
     },
     [reducedMotion],
   )
@@ -40,7 +47,10 @@ export default function App() {
   const canOpen = !spinning && prizes.length > 0
 
   const startOpening = useCallback(() => {
+    // Runs inside the tap, which is when browsers allow audio to start.
+    sound.unlock()
     if (!open()) return
+    sound.openStart()
     // Make sure the strip is on screen (the editor below may be scrolled into view).
     const strip = stripRef.current
     if (strip) {
@@ -71,11 +81,11 @@ export default function App() {
   return (
     <div className="relative min-h-dvh">
       <div className="confetti-backdrop pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />
-      <Header />
+      <Header soundOn={soundOn} onToggleSound={toggleSound} />
 
-      <main className="mx-auto max-w-6xl px-4 pt-4 pb-12 sm:px-6">
-        <section aria-labelledby="open-title" className="flex flex-col items-center gap-5">
-          <h1 id="open-title" className="text-center font-display text-3xl leading-tight font-extrabold sm:text-4xl">
+      <main className="mx-auto max-w-6xl px-3 pt-3 pb-12 min-[360px]:px-4 sm:px-6 sm:pt-4">
+        <section aria-labelledby="open-title" className="flex flex-col items-center gap-4 sm:gap-5">
+          <h1 id="open-title" className="text-center font-display text-[1.6rem] leading-tight font-extrabold sm:text-4xl">
             Bạn giỏi lắm! Mở quà nào!
           </h1>
 
@@ -89,11 +99,12 @@ export default function App() {
               phase={opening.phase}
               reducedMotion={reducedMotion}
               onSettled={opening.settle}
+              onTick={sound.tick}
             />
           </div>
 
-          <button type="button" onClick={startOpening} disabled={!canOpen} className="btn-candy h-20 w-full max-w-md text-3xl">
-            <Gift className="size-8" aria-hidden="true" />
+          <button type="button" onClick={startOpening} disabled={!canOpen} className="btn-candy h-16 w-full max-w-md text-2xl sm:h-20 sm:text-3xl">
+            <Gift className="size-7 sm:size-8" aria-hidden="true" />
             {spinning ? 'Đang mở…' : 'MỞ QUÀ!'}
           </button>
           {prizes.length === 0 && (
@@ -103,8 +114,17 @@ export default function App() {
           )}
         </section>
 
-        <div className="mt-12">
-          <PrizeEditor settings={settings} disabled={spinning} onUpdate={updatePrize} onReset={reset} />
+        <div className="mt-10 sm:mt-12">
+          <PrizeEditor
+            settings={settings}
+            disabled={spinning}
+            saveFailed={saveFailed}
+            onUpdate={updatePrize}
+            onAdd={addPrize}
+            onRemove={removePrize}
+            onRestore={restorePrize}
+            onReset={reset}
+          />
         </div>
       </main>
 
